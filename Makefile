@@ -15,7 +15,7 @@ spath = /etc/systemd/system
 .SUFFIXES:
 
 
-run: $(p) $(spath)/$(srv)
+run: $(p) $(spath)/$(srv) jadd
 	sudo systemctl restart $(srv)
 	make status
 

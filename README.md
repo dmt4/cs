@@ -3,25 +3,25 @@ Cluster Semaphore
 
 First steps.
 
-# Compilation
-## Prerequisites
-* systemd using kdbus
-Install kdbus for the appropriate kernel version.
+
+### Prerequisites
+* systemd headers
+* modern c++ compiler
+* kdbus
+
+If not available from repos, install kdbus for the appropriate kernel version with:
 
     git clone -b v4.3 https://github.com/systemd/kdbus.git
     pushd kdbus && make && sudo make install
 
 Add `kdbus=1` to the the boot flags and reboot.
 
-* systemd headers
-* modern c++ compiler
+## Compilation
 
-This shall do:
-
-    make && make jadd
+`make` shall do.
 
 
-# Running 
+## Running 
  
     ./jadd.sh name request
     ./jlst.sh
@@ -33,5 +33,4 @@ This shall do:
     
     ./jdel.sh `seq 110`
 
-`jadd` is a compiled version of `jadd.sh`. They can be used interchangeably.
-
+`jadd` is a compiled version of `jadd.sh`. They are interchangeable.
