@@ -1,0 +1,6 @@
+[Unit]
+Description=cluster semaphore kdbus
+
+[BusName]
+Service=csd.service
+AllowWorld=talk

@@ -1,0 +1,8 @@
+[Unit]
+Description=cluster semaphore service
+Requires=org.cs.busname
+After=org.cs.busname
+
+[Service]
+ExecStart=
+BusName=org.cs
