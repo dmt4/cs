@@ -1,3 +1,8 @@
+#ifndef JOBS_H
+#define JOBS_H
+
+#include "util.hxx"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cerrno>
@@ -6,32 +11,13 @@
 #include <cmath>
 #include <cfloat>
 
-#include <string>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-
-#include <iomanip>
-#include <limits>
-
-#include <iterator>
-#include <list>
-#include <vector>
-#include <map>
-#include <array>
-#include <unordered_map>
-#include <unordered_set>
-#include <valarray>
-
 #include <systemd/sd-bus.h>
+
 
 // these are non-const in systemd/sd-bus.h but shall really be const!
 int sd_bus_creds_get_euid(const sd_bus_creds *c, uid_t *euid);
 int sd_bus_creds_get_egid(const sd_bus_creds *c, gid_t *egid);
 int sd_bus_creds_get_supplementary_gids(const sd_bus_creds *c, const gid_t **gids);
-
-
-
 
 using std::vector;
 using std::string;
@@ -39,11 +25,6 @@ using std::list;
 using std::map;
 using std::ostream;
 using std::setw;
-
-
-
-#ifndef JOBS_H
-#define JOBS_H
 
 using jid_t = uint64_t;
 using jdel_lst_t = std::unordered_map<jid_t,string>;
@@ -100,6 +81,8 @@ ostream& operator<< (ostream &o, const job_t &j);
 
 class jobs_t {
     jid_t id0;
+    
+//     use map for now as it is sorted but may switch to unordered_map later and sort on print only
     map<jid_t,job_t> js;
     
 public:    

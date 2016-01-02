@@ -1,12 +1,13 @@
 Cluster Semaphore
 =================
 
-First steps.
+First steps. Very far from usable.
 
 
 ### Prerequisites
 * systemd headers
 * modern c++ compiler
+* ninja build system
 * kdbus
 
 If not available from repos, install kdbus for the appropriate kernel version with:
@@ -18,19 +19,13 @@ Add `kdbus=1` to the the boot flags and reboot.
 
 ## Compilation
 
-`make` shall do.
+`ninja` or `ninja all` shall compile, activate the service and print its status.
+
+`ninja clean` deletes all generated files and deactivates the service.
 
 
 ## Running 
- 
-    ./jadd.sh name request
-    ./jlst.sh
-    ./jadd.sh id1 id2 ...
 
-    for i in `seq 100`; do ./jadd n$i r$i; done
-
-    sudo -u otheruser ./jadd name request; done
-    
-    ./jdel.sh `seq 110`
+Look up the `test` target in `build.ninja`. The commands are quite crude so far but useful for debugging
 
 `jadd` is a compiled version of `jadd.sh`. They are interchangeable.
