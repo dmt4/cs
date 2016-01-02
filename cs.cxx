@@ -1,35 +1,4 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cerrno>
-#include <cstring>
-#include <ctime>
-#include <cmath>
-#include <cfloat>
-
-#include <string>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-
-#include <iomanip>
-#include <limits>
-
-#include <iterator>
-#include <list>
-#include <vector>
-#include <map>
-#include <array>
-#include <unordered_map>
-#include <unordered_set>
-#include <valarray>
-
-#include <systemd/sd-bus.h>
-
-// these are non-const in systemd/sd-bus.h but shall really be const!
-int sd_bus_creds_get_euid(const sd_bus_creds *c, uid_t *euid);
-int sd_bus_creds_get_egid(const sd_bus_creds *c, gid_t *egid);
-int sd_bus_creds_get_supplementary_gids(const sd_bus_creds *c, const gid_t **gids);
-
+#include "jobs.hxx"
 
 int sd_bus_creds_get_euid(const sd_bus_creds *c, uid_t *euid) {
     return sd_bus_creds_get_euid(const_cast<sd_bus_creds*>(c), euid);
@@ -42,79 +11,22 @@ int sd_bus_creds_get_supplementary_gids(const sd_bus_creds *c, const gid_t **gid
 }
 
 
-
-
-
-using std::vector;
-using std::string;
-using std::list;
-using std::map;
-using std::ostream;
-using std::setw;
-
-
 // this is defined in another file due to syntactic incompatibility of c11 with c++
 extern "C" const sd_bus_vtable job_ops_vtable[];
 
 
-using jid_t = uint64_t;
-
-
-class user_creds_t {
-public:
-    user_creds_t(const uid_t uid, const gid_t gid, const int ngids, const gid_t *gids): 
-        uid(uid), gid(gid), gids(gids, gids+ngids) {}
-    
-    user_creds_t(const sd_bus_creds *creds):
-        uid(99), gid(99) {
-        sd_bus_creds_get_euid(creds, &uid);
-        sd_bus_creds_get_egid(creds, &gid);
-                
-        const gid_t *gids = NULL;
-        int ngids = sd_bus_creds_get_supplementary_gids(creds, &gids);
-        this->gids = vector<gid_t>(gids, gids+ngids);
-    }
-    
-    uid_t uid;
-    gid_t gid;
-    vector<gid_t> gids;
-    
-    friend ostream& operator<< (ostream &, const user_creds_t &);
-    
-//    later capabilities, connections etc...
-};
-
-ostream& operator<< (ostream &o, const user_creds_t &uc);
-
-class job_t {
-public:
-    jid_t id;
-    const std::valarray<string> status_s {"queued", "running", "past"};
-    enum status_t {queued, running, past};
-    user_creds_t creds; 
-    
-    job_t(const string &name, const string &req, const user_creds_t &creds, const jid_t id = 0): 
-        name(name), req(req), creds(creds), id(id), status(queued) {}
-    job_t(const char *name, const char *req, const sd_bus_creds *creds, const jid_t id = 0): 
-        name(string(name)), req(string(req)), creds(user_creds_t(creds)), id(id), status(queued) {}
-    
-    ~job_t() {
-        std::cerr << "deleted: " << *this << '\n';
-    }
-    
-    
-    friend ostream& operator<< (ostream &, const job_t &);
-    
-private:
-    string name;
-    string req;
-    vector<string> nodes; // list of addresses
-    status_t status;
-};
+user_creds_t::user_creds_t(const sd_bus_creds *creds):
+    uid(99), gid(99) {
+    sd_bus_creds_get_euid(creds, &uid);
+    sd_bus_creds_get_egid(creds, &gid);
+            
+    const gid_t *gids = NULL;
+    int ngids = sd_bus_creds_get_supplementary_gids(creds, &gids);
+    this->gids = vector<gid_t>(gids, gids+ngids);
+}
 
 
 
-ostream& operator<< (ostream &o, const job_t &j);
 
 
 // template<class T> std::ostream& operator<<(std::ostream& o, const T& v) {
@@ -175,69 +87,57 @@ ostream& operator<< (ostream &o, const job_t &j) {
 // }
 
 
-using jdel_lst_t = std::unordered_map<jid_t,string>;
-
-
 std::ostream& operator<< (std::ostream & o, const jdel_lst_t& js) {
     for (auto& i : js) o << i.first << ": " << i.second << '\n';
     return o;
 }
 
-class jobs_t {
-    jid_t id0;
-    map<jid_t,job_t> js;
-    
-public:    
-    jobs_t(const jid_t id0 = 0): id0(id0) {}
-    
-    jid_t add(const job_t &j) {
-        jid_t jid(++id0);
-        auto jn = js.emplace(jid, j); //try_emplace not in gcc yet (v5.3.0)
-        if (jn.second) jn.first->second.id = jid;
-        return jid;
-    }
-    
-    jid_t add(const char *name, const char *req, const sd_bus_creds *creds) {
-        job_t j(name, req, creds);
-        return add(j);
-    }
-    
-    string del(const vector<jid_t>& jids, const user_creds_t &creds) {
-        
-        jdel_lst_t res;
-        for (auto& jid: jids) res.emplace(jid, "pending");
-   
-        for (auto& jp: res) {
-            auto itr = js.find(jp.first);
-            if (itr != js.end()) {
-                if (itr->second.creds.uid == creds.uid || 0 == creds.uid) {
-                    js.erase(itr);
-                    jp.second = "done";
-                } else {
-                    jp.second = "access denied";
-                }
-            } else {
-                jp.second = "nonexistent";
-            }            
-        }
-        
-        std::ostringstream s;
-        s << std::left << '\n' << res;
-        return s.str();
-    }
-    
-    string del(const int njids, const jid_t *jids, const sd_bus_creds *creds) {
-        return del(vector<jid_t>(jids, jids+njids), user_creds_t(creds));
-    }
-    
-    string lst() {
-        std::ostringstream s;
-        s << std::left << '\n' << js;
-        return s.str();
-    }
-    
 
-};
+jid_t jobs_t::add(const job_t &j) {
+    jid_t jid(++id0);
+    auto jn = js.emplace(jid, j); //try_emplace not in gcc yet (v5.3.0)
+    if (jn.second) jn.first->second.id = jid;
+    return jid;
+}
+
+jid_t jobs_t::add(const char *name, const char *req, const sd_bus_creds *creds) {
+    job_t j(name, req, creds);
+    return add(j);
+}
+
+string jobs_t::del(const vector<jid_t>& jids, const user_creds_t &creds) {
+    
+    jdel_lst_t res;
+    for (auto& jid: jids) res.emplace(jid, "pending");
+
+    for (auto& jp: res) {
+        auto itr = js.find(jp.first);
+        if (itr != js.end()) {
+            if (itr->second.creds.uid == creds.uid || 0 == creds.uid) {
+                js.erase(itr);
+                jp.second = "done";
+            } else {
+                jp.second = "access denied";
+            }
+        } else {
+            jp.second = "nonexistent";
+        }            
+    }
+    
+    std::ostringstream s;
+    s << std::left << '\n' << res;
+    return s.str();
+}
+
+string jobs_t::del(const int njids, const jid_t *jids, const sd_bus_creds *creds) {
+    return del(vector<jid_t>(jids, jids+njids), user_creds_t(creds));
+}
+
+string jobs_t::lst() {
+    std::ostringstream s;
+    s << std::left << '\n' << js;
+    return s.str();
+}
 
 
 
@@ -360,3 +260,4 @@ finish:
     sd_bus_unref(bus);
     return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
+

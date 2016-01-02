@@ -19,18 +19,18 @@ run: $(p) $(spath)/$(srv) jadd
 	sudo systemctl restart $(srv)
 	make status
 
-$(p).c.o: $(p).c
+%.c.o: %.c
 	$(cc) $(cflags) -c $< -o $@ 
 
-$(p).cxx.o: $(p).cxx
+%.cxx.o: %.cxx
 	$(cxx) $(cxxflags) -c $< -o $@
 
 $(p): $(p).c.o $(p).cxx.o 
-	$(cxx) $(cxxflags) $^ $(libs) -o $@
+	$(cxx) $(cxxflags) $^ $(libs) -o $(basename $@)
 
 
-jadd: jadd.cxx
-	$(cxx) $(cxxflags) $^ $(libs) -o $@
+jadd: jadd.cxx.o
+	$(cxx) $(cxxflags) $^ $(libs) -o $(basename $@)
 
 status:
 	sudo systemctl status $(srv)
